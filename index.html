@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alarma Geográfica GPS</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        /* --- CSS (Sin cambios, se mantiene igual) --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            min-height: 100vh;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        
+        .controls {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            flex: 1;
+            min-width: 120px;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid #e9ecef;
+        }
+        
+        .input-group label {
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .input-group input {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            width: 80px;
+            text-align: center;
+            font-size: 14px;
+        }
+        
+        #map {
+            height: 300px;
+            margin: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border: 3px solid #e9ecef;
+        }
+        
+        .status {
+            margin: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            border-left: 4px solid;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-color: #17a2b8;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border-color: #28a745;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border-color: #dc3545;
+        }
+        
+        .status.alarm {
+            background: #ff6b6b;
+            color: white;
+            border-color: #ff5252;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+        
+        .info-panel {
+            margin: 20px;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 1px solid #f8f9fa;
+        }
+        
+        .info-item:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #495057;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .info-value {
+            font-family: 'Monaco', 'Menlo', monospace;
+            color: #28a745;
+            font-weight: 600;
+        }
+        
+        .instructions {
+            margin: 20px;
+            padding: 20px;
+            background: #fff3cd;
+            border-radius: 8px;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .instructions h3 {
+            color: #856404;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        .instructions ol {
+            color: #856404;
+            font-size: 14px;
+            line-height: 1.6;
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 5px;
+        }
+
+        .fullscreen-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(30, 30, 50, 0.85);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .fullscreen-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .permission-dialog {
+            background: white;
+            padding: 30px 40px;
+            border-radius: 16px;
+            max-width: 450px;
+            color: #333;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .permission-dialog h2 {
+            font-size: 22px;
+            margin-bottom: 15px;
+        }
+
+        .permission-dialog p {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 25px;
+            color: #666;
+        }
+
+        .permission-dialog .btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                max-width: 100%;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+            }
+            
+            .btn {
+                min-width: auto;
+                padding: 15px;
+            }
+            
+            #map {
+                height: 250px;
+                margin: 10px;
+            }
+            
+            .controls,
+            .status,
+            .info-panel,
+            .instructions {
+                margin: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="prePermissionOverlay" class="fullscreen-overlay">
+        <div class="permission-dialog">
+            <h2>📍 Se necesita tu ubicación</h2>
+            <p>Para poder avisarte cuando llegues a tu destino, esta aplicación necesita acceder a tu ubicación GPS. Tu información es privada y solo se usa en tu dispositivo.</p>
+            <button class="btn btn-primary" onclick="requestLocationPermission()">Entendido, activar GPS</button>
+        </div>
+    </div>
+
+    <div id="deniedPermissionOverlay" class="fullscreen-overlay">
+        <div class="permission-dialog">
+            <h2>❌ Permiso de ubicación denegado</h2>
+            <p>Has bloqueado el permiso de ubicación. Para que la alarma funcione, por favor, actívalo manualmente en los ajustes de tu navegador y luego refresca la página.</p>
+            <button class="btn btn-secondary" onclick="document.getElementById('deniedPermissionOverlay').classList.remove('visible')">Cerrar</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Alarma Geográfica</h1>
+            <p>Te avisa cuando llegues a tu destino</p>
+        </div>
+
+        <div class="controls">
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="testGPS()">
+                    📍 Encontrar mi ubicación
+                </button>
+                <button class="btn btn-primary" onclick="testSound()">
+                    🔊 Probar Sonido
+                </button>
+            </div>
+            
+            <div class="btn-group">
+                <button class="btn btn-success" onclick="startTracking()" id="startBtn" disabled>
+                    ▶️ Iniciar Alarma
+                </button>
+                <button class="btn btn-danger" onclick="stopTracking()" id="stopBtn" disabled>
+                    ⏹️ Parar
+                </button>
+                <button class="btn btn-secondary" onclick="clearAll()">
+                    🗑️ Limpiar
+                </button>
+            </div>
+            
+            <div class="input-group">
+                <label for="radiusInput">📏 Radio de alarma:</label>
+                <input type="number" id="radiusInput" value="50" min="10" max="1000" step="10">
+                <span>metros</span>
+            </div>
+        </div>
+
+        <div class="status info" id="statusDiv">
+            Iniciando aplicación...
+        </div>
+
+        <div id="map"></div>
+
+        <div class="info-panel">
+            <div class="info-item">
+                <div class="info-label">
+                    🎯 Destino
+                </div>
+                <div class="info-value" id="destinationInfo">No marcado</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">
+                    📍 Tu posición
+                </div>
+                <div class="info-value" id="positionInfo">Desconocida</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">
+                    📏 Distancia
+                </div>
+                <div class="info-value" id="distanceInfo">--</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">
+                    ⚡ Estado
+                </div>
+                <div class="info-value" id="trackingStatus">Inactivo</div>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>📋 Instrucciones</h3>
+            <ol>
+                <li><strong>Marcar destino:</strong> Toca el mapa donde quieres llegar</li>
+                <li><strong>Ajustar radio:</strong> Configura a qué distancia quieres la alarma</li>
+                <li><strong>Iniciar:</strong> Comienza el seguimiento GPS</li>
+                <li><strong>¡Listo!</strong> La alarma sonará cuando llegues</li>
+            </ol>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // --- Variables y Elementos DOM ---
+        let map;
+        let destinationMarker = null;
+        let radiusCircle = null;
+        let userMarker = null;
+        let watchId = null;
+        let audioContext = null;
+        let alarmInterval = null;
+        let isAlarmActive = false;
+
+        let currentLat = -34.9011; // Montevideo por defecto
+        let currentLng = -56.1645;
+        let destinationLat = null;
+        let destinationLng = null;
+
+        const statusDiv = document.getElementById('statusDiv');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const radiusInput = document.getElementById('radiusInput');
+        const destinationInfo = document.getElementById('destinationInfo');
+        const positionInfo = document.getElementById('positionInfo');
+        const distanceInfo = document.getElementById('distanceInfo');
+        const trackingStatus = document.getElementById('trackingStatus');
+        const prePermissionOverlay = document.getElementById('prePermissionOverlay');
+        const deniedPermissionOverlay = document.getElementById('deniedPermissionOverlay');
+        
+        // --- LÓGICA DE INICIALIZACIÓN ---
+        
+        window.addEventListener('load', function() {
+            initAudio();
+            testGPS();
+        });
+        
+        function testGPS() {
+            if (!navigator.geolocation) {
+                showStatus('❌ GPS no disponible en este navegador', 'error');
+                initMapWithCoordinates(currentLat, currentLng);
+                return;
+            }
+            prePermissionOverlay.classList.add('visible');
+        }
+        
+        function requestLocationPermission() {
+            prePermissionOverlay.classList.remove('visible');
+            // CAMBIO 3: Mejor feedback para el usuario
+            showStatus('📡 Buscando tu ubicación precisa... Esto puede tardar unos segundos.', 'info');
+
+            // Opciones de geolocalización de alta precisión
+            const geoOptions = {
+                enableHighAccuracy: true,
+                // CAMBIO 1: Aumentar tiempo de espera
+                timeout: 25000, 
+                // CAMBIO 2 (CRÍTICO): Forzar lectura nueva, no usar caché
+                maximumAge: 0 
+            };
+
+            navigator.geolocation.getCurrentPosition(
+                function(position) { // Éxito
+                    currentLat = position.coords.latitude;
+                    currentLng = position.coords.longitude;
+                    const accuracy = position.coords.accuracy;
+                    showStatus(`✅ Ubicación encontrada. Precisión: ${accuracy.toFixed(0)}m`, 'success');
+                    
+                    if (!map) {
+                        initMapWithCoordinates(currentLat, currentLng, 15);
+                    } else {
+                        map.setView([currentLat, currentLng], 15);
+                    }
+                    updateUserMarker();
+                },
+                function(error) { // Error
+                    let message = '❌ No se pudo obtener la ubicación: ';
+                    switch(error.code) {
+                        case 1: 
+                            message += 'Permiso denegado.'; 
+                            deniedPermissionOverlay.classList.add('visible');
+                            break;
+                        case 2: message += 'Señal no disponible.'; break;
+                        case 3: message += 'Tiempo de espera agotado.'; break;
+                        default: message += 'Error desconocido.';
+                    }
+                    showStatus(message, 'error');
+                    if (!map) {
+                        initMapWithCoordinates(currentLat, currentLng);
+                    }
+                },
+                geoOptions
+            );
+        }
+
+        function initMapWithCoordinates(lat, lng, zoomLevel = 13) {
+            if (map) return; 
+
+            map = L.map('map').setView([lat, lng], zoomLevel);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            map.on('click', function(e) {
+                setDestination(e.latlng.lat, e.latlng.lng);
+            });
+        }
+        
+        // --- RESTO DE LAS FUNCIONES ---
+
+        function showStatus(message, type = 'info') {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+        
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                     Math.sin(dLon/2) * Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        function updateInfo() {
+            if (destinationLat && destinationLng) {
+                destinationInfo.textContent = `${destinationLat.toFixed(4)}, ${destinationLng.toFixed(4)}`;
+                const distance = calculateDistance(currentLat, currentLng, destinationLat, destinationLng);
+                distanceInfo.textContent = `${distance.toFixed(0)}m`;
+                return distance;
+            } else {
+                destinationInfo.textContent = 'No marcado';
+                distanceInfo.textContent = '--';
+                return null;
+            }
+        }
+
+        function setDestination(lat, lng) {
+            if (destinationMarker) map.removeLayer(destinationMarker);
+            if (radiusCircle) map.removeLayer(radiusCircle);
+            destinationLat = lat;
+            destinationLng = lng;
+            destinationMarker = L.marker([lat, lng]).addTo(map).bindPopup('🎯 Destino marcado').openPopup();
+            const radius = parseInt(radiusInput.value) || 50;
+            radiusCircle = L.circle([lat, lng], {
+                radius: radius, color: '#dc3545', fillColor: '#f8d7da', fillOpacity: 0.3, weight: 2
+            }).addTo(map);
+            startBtn.disabled = false;
+            showStatus(`🎯 Destino marcado - Radio: ${radius}m`, 'success');
+            updateInfo();
+        }
+
+        function updateUserMarker() {
+            if (!map) return;
+            if (userMarker) map.removeLayer(userMarker);
+            userMarker = L.marker([currentLat, currentLng]).addTo(map).bindPopup('📍 Tu ubicación');
+            positionInfo.textContent = `${currentLat.toFixed(4)}, ${currentLng.toFixed(4)}`;
+            updateInfo();
+        }
+
+        function initAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) { console.error('Web Audio API no soportada'); }
+        }
+
+        function playBeep(duration = 500, frequency = 880) {
+            if (!audioContext) return;
+            try {
+                if (audioContext.state === 'suspended') audioContext.resume();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                oscillator.frequency.value = frequency;
+                oscillator.type = 'sine';
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration / 1000);
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + duration / 1000);
+            } catch (e) { console.error('Error reproduciendo sonido:', e); }
+        }
+
+        function testSound() {
+            if (!audioContext) {
+                showStatus('❌ Audio no disponible', 'error'); return;
+            }
+            playBeep(600, 800);
+            showStatus('🔊 Sonido de prueba reproducido', 'success');
+            setTimeout(() => { showStatus('🎵 Audio funcionando correctamente', 'info'); }, 1000);
+        }
+
+        function startTracking() {
+            if (!destinationLat || !destinationLng) {
+                showStatus('❌ Primero marca un destino en el mapa', 'error'); return;
+            }
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            trackingStatus.textContent = 'Activo';
+            trackingStatus.style.color = '#28a745';
+            showStatus('🚀 Iniciando seguimiento GPS...', 'info');
+            
+            const geoOptionsTracking = {
+                enableHighAccuracy: true,
+                timeout: 20000,
+                maximumAge: 0 // También forzar lecturas nuevas durante el seguimiento
+            };
+
+            watchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    currentLat = position.coords.latitude;
+                    currentLng = position.coords.longitude;
+                    updateUserMarker();
+                    const distance = updateInfo();
+                    const radius = parseInt(radiusInput.value) || 50;
+                    showStatus(`📡 Seguimiento activo - ${distance.toFixed(0)}m del destino`, 'info');
+                    if (distance <= radius && !isAlarmActive) {
+                        triggerAlarm();
+                    }
+                },
+                (error) => {
+                    showStatus(`❌ Error en seguimiento: ${error.message}`, 'error');
+                    stopTracking();
+                },
+                geoOptionsTracking
+            );
+        }
+
+        function stopTracking() {
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            trackingStatus.textContent = 'Inactivo';
+            trackingStatus.style.color = '#6c757d';
+            stopAlarm();
+            showStatus('⏹️ Seguimiento detenido', 'info');
+        }
+
+        function triggerAlarm() {
+            if (isAlarmActive) return;
+            isAlarmActive = true;
+            document.body.style.background = 'linear-gradient(135deg, #ff6b6b, #ff8e8e)';
+            showStatus('🚨 ¡ALARMA! Has llegado al destino', 'alarm');
+            trackingStatus.textContent = '🚨 ALARMA ACTIVA';
+            trackingStatus.style.color = '#dc3545';
+            playBeep(1000, 1000);
+            if (navigator.vibrate) navigator.vibrate([1000, 500, 1000, 500, 1000]);
+            alarmInterval = setInterval(() => {
+                playBeep(800, 900);
+                if (navigator.vibrate) navigator.vibrate([800, 300, 800]);
+            }, 2000);
+            setTimeout(() => { stopTracking(); }, 1000);
+        }
+
+        function stopAlarm() {
+            if (alarmInterval) clearInterval(alarmInterval);
+            alarmInterval = null;
+            isAlarmActive = false;
+            document.body.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+            if (navigator.vibrate) navigator.vibrate(0);
+        }
+
+        function clearAll() {
+            stopTracking();
+            if(map) {
+                if (destinationMarker) map.removeLayer(destinationMarker);
+                if (radiusCircle) map.removeLayer(radiusCircle);
+                if (userMarker) map.removeLayer(userMarker);
+            }
+            destinationMarker = radiusCircle = userMarker = destinationLat = destinationLng = null;
+            destinationInfo.textContent = 'No marcado';
+            positionInfo.textContent = 'Desconocida';
+            distanceInfo.textContent = '--';
+            startBtn.disabled = true;
+            showStatus('🗑️ Todo limpiado - Toca el mapa para nuevo destino', 'info');
+        }
+
+        radiusInput.addEventListener('input', function() {
+            if (radiusCircle) {
+                const newRadius = parseInt(this.value) || 50;
+                radiusCircle.setRadius(newRadius);
+                showStatus(`📏 Radio actualizado a ${newRadius}m`, 'success');
+            }
+        });
+
+    </script>
+</body>
+</html>
